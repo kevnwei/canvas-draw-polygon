@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+    body {
+        margin:0;
+    }
+    a {
+        text-decoration: none;
+    }
+    #top-button {
+        background-color:#c9c9c9;
+        position:fixed;
+        left:10px;
+        top:10px
+    }
+    #view {
+        background-image: url(./images/modes.png);
+        background-position-x: 0px;
+        background-position-y: 64px;
+        width: 40px;
+        height: 30px;
+    }
+    #rectangle {
+        background-image: url(./images/modes.png);
+        background-position-x: 69px;
+        background-position-y: 64px;
+        width: 40px;
+        height: 30px;
+        margin-left: -3px;
+    }
+    #polygon {
+        background-image: url(./images/modes.png);
+        background-position-x: 136px;
+        background-position-y: 64px;
+        width: 40px;
+        height: 30px;
+        margin-left: -3px;
+    }
+    #btn-a {
+        width: 70px;
+        height: 30px;
+        background-color: #ec6060;
+        vertical-align: text-bottom;
+        color: #cccccc;
+    }
+    #btn-b {
+        width: 70px;
+        height: 30px;
+        background-color: #FFFF00;
+        vertical-align: text-bottom;
+        margin-left: -5px;
+    }
+    #btn-c {
+        width: 70px;
+        height: 30px;
+        background-color: #8989f5;
+        vertical-align: text-bottom;
+        margin-left: -5px;
+    }
+    #save {
+        background-image: url(./images/save.png);
+        background-position-x: 2px;
+        background-position-y: 64px;
+        width: 38px;
+        height: 30px;
+        vertical-align: text-bottom;
+    }
+    #right-menu {
+        position: absolute;
+        z-index: 99999;
+        overflow: hidden;
+        width: 65px;
+        background-color: #FFFFFF;
+        border: dimgray 1px solid !important;
+        font-size: 14px;
+        list-style-type: none;
+        padding-left: 10px;
+        display: none;
+    }
+    .menu-grid {
+        width: 12px;
+        height: 12px;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    #tag-a {
+        background-color: #ec6060;
+    }
+    #tag-b {
+        background-color: #FFFF00;
+    }
+    #tag-c {
+        background-color: #8989f5;
+    }
+    </style>
+    <script src="./js/jquery-2.2.4.min.js"></script>
+    <script src="./js/angular.min.js"></script>
+    <script src="./js/angular-canvas-area-draw.js"></script>
+</head>
+<body>
+
+<script>
+(function($){
+    $.getUrlParam = function(name)
+    {
+        var reg = new RegExp("(^|&)"+ name +"=([^&]*)(&|$)");
+        var r = window.location.search.substr(1).match(reg);
+        if (r!=null) return decodeURI(r[2]); return null;
+    }
+})(jQuery);
+
+var imgurl = $.getUrlParam('imgurl');
+var jsonstr = $.getUrlParam('json');
+var app = angular.module("drawApp", ['sd.canvas-area-draw']); 
+app.controller("drawCtrl", function($scope) {
+    $scope.points = [[]];
+    $scope.colors = [[0]];
+    $scope.imageSrc = imgurl ? imgurl : '';
+    $scope.colorArray = ['#FF0000', '#FFFF00', '#0000FF'];
+    $scope.activePolygon = 0;
+    $scope.color = 0;
+    $scope.rectMode = false;
+    $scope.viewMode = false;
+    $scope.types = ['A', 'B', 'C'];
+    $scope.scaleSize = 1;
+    $scope.imageSize = 0;
+
+    $scope.view = function(){
+        $scope.viewMode = !$scope.viewMode;
+        !$scope.viewMode ? $scope.unfocus('view') : $scope.focus('view');
+    };
+
+    $scope.rect = function(){
+        $scope.rectMode = true;
+        $scope.viewMode = false;
+        !$scope.viewMode ? $scope.unfocus('view') : $scope.focus('view');
+        $scope.focus('rectangle');
+        $scope.unfocus('polygon');
+    };
+
+    $scope.polygon = function(){
+        $scope.rectMode = false;
+        $scope.viewMode = false;
+        !$scope.viewMode ? $scope.unfocus('view') : $scope.focus('view');
+        $scope.focus('polygon');
+        $scope.unfocus('rectangle');
+        $scope.points.push([]);
+        $scope.colors.push([$scope.color]);
+        $scope.activePolygon = $scope.points.length - 1;
+    };
+
+    $scope.setTypeA = function(){
+        $scope.color = 0;
+        $('#btn-a').css('color', '#ccc');
+        $('#btn-b').css('color', 'initial');
+        $('#btn-c').css('color', 'initial');
+    };
+
+    $scope.setTypeB = function(){
+        $scope.color = 1;
+        $('#btn-a').css('color', 'initial');
+        $('#btn-b').css('color', '#ccc');
+        $('#btn-c').css('color', 'initial');
+    };
+
+    $scope.setTypeC = function(){
+        $scope.color = 2;
+        $('#btn-a').css('color', 'initial');
+        $('#btn-b').css('color', 'initial');
+        $('#btn-c').css('color', '#ccc');
+    };
+
+    $scope.undo = function(){
+        $scope.points[$scope.activePolygon].splice(-1, 1);
+    };
+
+    $scope.clearAll = function(){
+        $scope.points[$scope.activePolygon] = [];
+    };
+
+    $scope.removePolygon = function (index) {
+        $scope.points.splice(index, 1);
+        if(index <= $scope.activePolygon) {
+            --$scope.activePolygon;
+        }
+        $scope.colors.splice(index, 1);
+    };
+
+    $scope.setColor = function (color){
+        $scope.colors[$scope.activePolygon] = [color];
+    };
+
+    $scope.add = function (index) {
+        $scope.points.push([]);
+        $scope.colors.push([$scope.color]);
+        $scope.activePolygon = $scope.points.length - 1;
+    };
+
+    $scope.focus = function (btnId) {
+        $('#'+btnId).css('box-shadow', '3px 3px #504c4c');
+    };
+
+    $scope.unfocus = function (btnId) {
+        $('#'+btnId).css('box-shadow', '');
+    };
+
+    $scope.save = function () {
+        var output = {'poly':[], 'rect':[]};
+        $scope.focus('save');
+        if ($scope.points.length === 0) {
+            $('#debug').html(JSON.stringify(output));
+            return false;
+        }
+
+        var scale = $scope.imageSize / parseInt($('#mycanvas').css('width'));
+        var points = [];
+        var shape = '';
+        for (var i = 0; i < $scope.points.length; i++) {
+            if ($scope.points[i].length == 0) {
+                continue;
+            }
+            if ($scope.points[i].length != 4 || ($scope.points[i].length == 4 && !(
+                $scope.points[i][0][0] == $scope.points[i][1][0] && 
+                $scope.points[i][0][1] == $scope.points[i][3][1] && 
+                $scope.points[i][1][1] == $scope.points[i][2][1] && 
+                $scope.points[i][2][0] == $scope.points[i][3][0]))) {
+                shape = 'poly';
+            } else {
+                shape = 'rect';
+            }
+            points = [];
+            for (var j in $scope.points[i]) {
+                points.push([Math.round($scope.points[i][j][0] * scale), Math.round($scope.points[i][j][1] * scale)]);
+            }
+            output[shape].push({'points':points, 'type': $scope.types[$scope.colors[i][0]]});
+        }
+        $('#debug').html(JSON.stringify(output));
+    }
+});
+</script>
+
+<div id="test" ng-app="drawApp" ng-controller="drawCtrl">
+    <div id="top-button">
+        <button ng-click="view()" id="view"></button>
+        <button ng-click="rect()" id="rectangle"></button>
+        <button ng-click="polygon()" id="polygon"></button>
+        <button ng-click="setTypeA()" id="btn-a">A</button>
+        <button ng-click="setTypeB()" id="btn-b">B</button>
+        <button ng-click="setTypeC()" id="btn-c">C</button>
+        <button ng-click="save()" id="save"></button>
+    </div>
+    <div canvas-area-draw
+        load="reload"
+        points="points"
+        active="activePolygon"
+        image-url="imageSrc"
+        enabled="enabled"
+        palette="colorArray"
+        color="color"
+        colors="colors"
+        imagesize="imageSize"
+        scale-size="scaleSize"
+        viewmode="viewMode"
+        rectmode="rectMode">
+    </div>
+    <ul id="right-menu">
+        <li>
+            <span class="menu-grid" id="tag-a"></span>
+            <a ng-click="setColor(0)" onClick="$('#right-menu').hide()" href='javascript:;'>A</a>
+        </li>
+        <li>
+            <span class="menu-grid" id="tag-b"></span>
+            <a ng-click="setColor(1)" onClick="$('#right-menu').hide()" href='javascript:;'>B</a>
+        </li>
+        <li>
+            <span class="menu-grid" id="tag-c"></span>
+            <a ng-click="setColor(2)" onClick="$('#right-menu').hide()" href='javascript:;'>C</a>
+        </li>
+    </ul>
+    <div>
+        <br/><br/>
+        {{points}}
+        <br/><br/>
+        {{colors}}
+        <br><br/>
+        {{scaleSize}}
+    </div>
+    <div id="debug"></div>
+</div>
+</body>
+</html>
